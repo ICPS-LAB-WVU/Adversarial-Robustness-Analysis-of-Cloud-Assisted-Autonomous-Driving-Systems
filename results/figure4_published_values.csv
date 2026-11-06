@@ -1,0 +1,8 @@
+label,attack,epsilon_reported,precision_reported,recall_reported
+Clean,clean,0.0,0.73,0.68
+FGSM 0.01,fgsm_gt,0.01,0.67,0.54
+PGD 0.01,pgd_gt,0.01,0.68,0.56
+FGSM 0.02,fgsm_gt,0.02,0.58,0.48
+PGD 0.02,pgd_gt,0.02,0.43,0.27
+FGSM 0.04,fgsm_gt,0.04,0.38,0.46
+PGD 0.04,pgd_gt,0.04,0.22,0.15

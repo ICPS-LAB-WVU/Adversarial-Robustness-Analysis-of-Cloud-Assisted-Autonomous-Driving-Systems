@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "Please cite the IEEE SM 2026 paper when using this artifact."
+title: "Adversarial Robustness Analysis of Cloud-Assisted Autonomous Driving Systems: Research Code"
+type: software
+authors:
+  - family-names: "Al Islam"
+    given-names: "Maher"
+  - family-names: "El-Wakeel"
+    given-names: "Amr S."
+preferred-citation:
+  type: conference-paper
+  title: "Adversarial Robustness Analysis of Cloud-Assisted Autonomous Driving Systems"
+  authors:
+    - family-names: "Al Islam"
+      given-names: "Maher"
+    - family-names: "El-Wakeel"
+      given-names: "Amr S."
+  doi: "10.1109/SM69703.2026.11614113"
+  year: 2026
+  conference:
+    name: "2026 International Conference on Smart Mobility (SM)"

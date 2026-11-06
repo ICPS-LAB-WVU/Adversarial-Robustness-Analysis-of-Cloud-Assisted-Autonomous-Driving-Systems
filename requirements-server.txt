@@ -1,0 +1,13 @@
+# Cloud GPU server; install a compatible CUDA PyTorch build separately.
+ultralytics
+opencv-python
+numpy
+scipy
+pandas
+matplotlib
+Pillow
+PyYAML
+torchsummary
+tensorboard
+lap
+cython-bbox

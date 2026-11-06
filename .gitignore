@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.env.*
+
+# Model weights and training data (permission needed before distributing)
+weight/*
+!weight/yolo.pt
+!weight/segment_model_old.pth
+weights/
+dataset/
+datasets/
+data/
+ByteTrack/
+
+# Generated benchmarks and network traces
+offline_attacks*/
+output/
+output_adversary/
+plots_from_yolo/
+runs*/
+rec/
+logs/
+*.pcap
+*.pcapng
+*.bag
+*.avi
+*.mp4
+*.pt
+*.pth
+!weight/yolo.pt
+!weight/segment_model_old.pth
+*.onnx
+
+# Editors, temporary files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local ByteTrack clone is not bundled
+ByteTrack/
