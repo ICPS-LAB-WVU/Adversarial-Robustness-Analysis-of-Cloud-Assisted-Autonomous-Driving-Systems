@@ -193,13 +193,13 @@ The results show that network impairment can destabilize the perception–contro
 If you use this repository or refer to the reported results, please cite:
 
 ```bibtex
-@inproceedings{alislam2026adversarial,
-  author    = {Al Islam, Maher and El-Wakeel, Amr S.},
-  title     = {Adversarial Robustness Analysis of Cloud-Assisted Autonomous Driving Systems},
-  booktitle = {2026 International Conference on Smart Mobility (SM)},
-  year      = {2026},
-  publisher = {IEEE},
-  doi       = {10.1109/SM69703.2026.11614113}
+@inproceedings{al2026adversarial,
+  title={Adversarial Robustness Analysis of Cloud-Assisted Autonomous Driving Systems},
+  author={Al Islam, Maher and El-Wakeel, Amr S},
+  booktitle={2026 International Conference on Smart Mobility (SM)},
+  pages={1--5},
+  year={2026},
+  organization={IEEE}
 }
 ```
 
