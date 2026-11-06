@@ -1,206 +1,196 @@
 # Adversarial Robustness Analysis of Cloud-Assisted Autonomous Driving Systems
 
-Code for the IEEE paper:
+This repository provides the source code and experimental material accompanying the accepted IEEE conference paper:
 
 > **Adversarial Robustness Analysis of Cloud-Assisted Autonomous Driving Systems**  
-> Maher Al Islam and Amr S. El-Wakeel  
+> **Maher Al Islam and Amr S. El-Wakeel**  
 > *2026 International Conference on Smart Mobility (SM)*, IEEE, 2026.  
-> DOI: **[10.1109/SM69703.2026.11614113](https://doi.org/10.1109/SM69703.2026.11614113)**
+> **DOI:** [10.1109/SM69703.2026.11614113](https://doi.org/10.1109/SM69703.2026.11614113)
 
 ## Overview
 
-This project studies adversarial vulnerabilities in **cloud-assisted autonomous driving** using a physical Duckietown testbed. Each Duckiebot streams camera frames over TCP to a GPU workstation. The workstation performs object detection (YOLOv8n), lane segmentation (U-Net), tracking (ByteTrack), and lane/traffic-rule control (PID/FSM), then sends linear velocity `v` and angular velocity `omega` to the robot.
+Cloud-assisted autonomous driving moves computationally intensive perception and control from the vehicle to a remote server. Although this architecture supports powerful perception models, it also exposes the driving loop to **adversarial manipulation of camera images** and **disruptions of vehicle–cloud communication**.
 
-The evaluated threats are **white-box adversarial perturbations** (FGSM and PGD) applied to the cloud-side visual input, and **network impairments** (delay and packet loss) applied to the vehicle–cloud link.
+This paper presents a hardware-in-the-loop **Internet of Vehicles (IoV) testbed** built using Duckietown. A Duckiebot transmits camera frames to a GPU workstation over TCP. The workstation performs **YOLOv8n object detection**, **U-Net lane segmentation**, and **PID-based motion control**, then returns the linear and angular velocity commands to the vehicle.
 
-## System architecture
+The study investigates two threat categories:
 
-```mermaid
-flowchart LR
-    A[Duckiebot camera] --> B[ROS Docker client: vehicle_client.py]
-    B -->|JPEG / TCP port 5001| C[GPU server: gpu_server.py]
-    C --> D[Adversarial attacks: FGSM / PGD]
-    D --> E[YOLOv8 + U-Net + ByteTrack]
-    E --> F[PID / FSM controller]
-    F -->|v, omega / TCP| B
-    B --> G[Wheel command topic]
-    N[Linux tc netem: delay / loss] -.-> B
-```
+1. **Adversarial AI:** White-box Fast Gradient Sign Method (FGSM) and Projected Gradient Descent (PGD) attacks targeting YOLOv8 object detection.
+2. **Network adversary:** Controlled delay and packet loss in the vehicle–cloud communication loop using Linux `tc netem`, with the attack workflow organized around the MITRE ATT&CK framework.
 
-The **Duckiebot client runs in Docker using `dts devel build` and `dts devel run`**. The **GPU inference server runs on the workstation** as a separate Python process. The figure shows the logical attack locations; impairment is configured on the network interface selected by the experimenter.
+The experiments assess their effects on **detection precision and recall, vehicle trajectory stability, and traffic-rule compliance**.
 
-## Repository structure
+## System Architecture
+
+![Figure 1: Cloud-assisted Duckietown testbed showing the vehicle, cloud perception and control, and adversarial modules.](figures/fig1_system_architecture.jpg)
+
+*Figure 1. Architecture of the cloud-assisted autonomous driving testbed.*
+
+The framework has three components:
+
+- **Vehicle module:** The Duckiebot captures camera images through ROS, sends them to the GPU server over TCP, and executes the returned velocity commands.
+- **Cloud module:** The workstation performs object detection, lane segmentation, and PID-based control using the received frames.
+- **Adversary module:** FGSM/PGD perturb the input frames prior to detection; network impairment scenarios introduce delay and packet loss in the communication channel.
+
+The Duckiebot-side ROS client is deployed using **`dts devel` in Docker**. The GPU server runs on the workstation.
+
+## Repository Contents
 
 ```text
 Adversarial-Robustness-Analysis-of-Cloud-Assisted-Autonomous-Driving-Systems/
 ├── README.md
-├── CITATION.cff
-├── Dockerfile                      # Duckietown image definition
-├── launchers/default.sh            # Duckietown container startup
-├── packages/my_package/            # ROS client package
-│   └── src/vehicle_client.py       # Camera frames -> TCP; control -> ROS
-├── gpu_server.py                   # GPU-side TCP server and experiment logging
-├── perception_control.py           # YOLOv8, U-Net, ByteTrack, PID/FSM
-├── class_labels.py                 # Shared detection class names
-├── visualization.py                # Debug overlays
-├── segmentation/
-│   └── unet_model.py               # U-Net architecture
-├── adversarial_attacks.py           # Online FGSM and PGD attacks
-├── configure_attacks.py            # Enable/disable runtime attacks
-├── evaluate_adversarial_detection.py # Offline FGSM/PGD evaluation
-├── plot_adversarial_metrics.py      # Precision/recall evaluation plots
-├── plot_yolo_validation.py         # Optional YOLO validation plots
-├── run_network_impairment.sh       # Network delay/loss experiments
-├── weight/                         # Provided model checkpoints
+├── Dockerfile
+├── launchers/default.sh
+├── packages/my_package/
+│   └── src/vehicle_client.py        # Duckiebot ROS/TCP client
+├── gpu_server.py                     # Cloud TCP server
+├── perception_control.py             # YOLOv8, U-Net, and driving control
+├── segmentation/unet_model.py        # U-Net implementation
+├── adversarial_attacks.py            # White-box FGSM and PGD
+├── configure_attacks.py              # Runtime attack configuration
+├── evaluate_adversarial_detection.py # Offline adversarial evaluation
+├── plot_adversarial_metrics.py       # Detection metrics visualization
+├── run_network_impairment.sh         # Delay and packet-loss scenarios
+├── weight/                           # Perception model checkpoints
 ├── results/figure4_published_values.csv
-└── requirements-server.txt
+└── figures/                          # Figures from the accepted paper
 ```
 
-## Main components
+## Experimental Setup
 
-| Component | Script | Role |
-| --- | --- | --- |
-| Duckiebot client | `packages/my_package/src/vehicle_client.py` | ROS camera subscriber, TCP transport, velocity command publisher |
-| Cloud GPU server | `gpu_server.py` | Receives frames, calls inference and control, returns `v`/`omega`, logs selected telemetry |
-| Perception and control | `perception_control.py` | YOLOv8, U-Net, ByteTrack, lane following and intersection logic |
-| Visual attacks | `adversarial_attacks.py` | Online white-box FGSM/PGD |
-| Attack control | `configure_attacks.py` | Controls live attack settings via a shared JSON file |
-| Offline evaluation | `evaluate_adversarial_detection.py` | Generate adversarial test examples and detection records |
-| Results plots | `plot_adversarial_metrics.py` | Analyze offline attack metrics |
-| Network impairment | `run_network_impairment.sh` | Linux `tc netem` scenarios |
+| Parameter | Setting in the paper |
+| --- | --- |
+| Vehicle platform | Duckiebot with Jetson board |
+| Cloud workstation | Ubuntu 22.04; NVIDIA RTX A2000 (12 GB); 32 GB RAM |
+| Object detector | YOLOv8n |
+| Lane segmentation | U-Net |
+| Image resolution | 640 × 640 |
+| Detection dataset | 4,886 annotated Duckiebot RGB frames |
+| Train/test split | 70% / 30% |
+| Adversarial attacks | FGSM and PGD (white-box) |
+| Perturbation budgets | ε ∈ {0.01, 0.02, 0.04} |
+| PGD step size / iterations | α = 0.01 / 10 |
+| Network delay scenarios | 100, 150, and 250 ms |
+| Packet loss scenarios | 0.5%, 2%, and 5% |
 
-## Installation and execution
+### Running the cloud-assisted testbed
 
-### 1. GPU workstation
+**1. GPU workstation**
 
 ```bash
 git clone https://github.com/ICPS-LAB-WVU/Adversarial-Robustness-Analysis-of-Cloud-Assisted-Autonomous-Driving-Systems.git
 cd Adversarial-Robustness-Analysis-of-Cloud-Assisted-Autonomous-Driving-Systems
 
-# Install a compatible CUDA-enabled PyTorch environment separately.
+# Install a compatible PyTorch/CUDA environment and the server dependencies.
 python3 -m pip install -r requirements-server.txt
-```
 
-The cloud pipeline imports `yolox.tracker.byte_tracker` from [ByteTrack](https://github.com/ifzhang/ByteTrack). Install a compatible ByteTrack/YOLOX checkout and include it in `PYTHONPATH`:
-
-```bash
-git clone https://github.com/ifzhang/ByteTrack.git
-export PYTHONPATH="$PWD/ByteTrack:$PYTHONPATH"
-```
-
-A compatible PyTorch, Ultralytics, YOLOX, and tracker dependency environment is necessary. The `requirements-server.txt` file is a starting list, not a frozen, verified environment.
-
-Checkpoints included in `weight/`:
-
-- `weight/yolo.pt` — supplied YOLO model
-- `weight/segment_model_old.pth` — supplied lane segmentation model
-
-These checkpoint files were recovered from the provided project archive; their exact provenance relative to every published experiment is not independently verified. You may override them with `YOLO_WEIGHTS` and `SEG_WEIGHTS`.
-
-Start the GPU server:
-
-```bash
+# The perception code also requires a compatible YOLOX/ByteTrack installation.
 export YOLO_WEIGHTS=weight/yolo.pt
 export SEG_WEIGHTS=weight/segment_model_old.pth
 export GPU_SERVER_PORT=5001
 export SHOW_GUI=0
-export SAVE_VIDEO=0
 python3 gpu_server.py
 ```
 
-Ensure that the workstation is reachable from the Duckiebot on TCP port `5001`.
-
-### 2. Duckiebot Docker deployment (`dts devel`)
-
-Run these commands on the computer with the Duckietown CLI and repository checkout:
+**2. Duckiebot (`dts devel` Docker deployment)**
 
 ```bash
-# Replace ruks007 with the actual robot hostname
-dts devel build -H ruks007 -f
+# Run from the repository checkout using Duckietown Shell.
+dts devel build -H <duckiebot-name> -f
 
-export GPU_SERVER_IP="YOUR_GPU_WORKSTATION_IP"
+export GPU_SERVER_IP=<gpu-workstation-ip>
 export GPU_SERVER_PORT=5001
 export GPU_FRAME_RATE=15
 
-dts devel run -H ruks007 -f -- \
+dts devel run -H <duckiebot-name> -f -- \
   -e GPU_SERVER_IP \
   -e GPU_SERVER_PORT \
   -e GPU_FRAME_RATE
 ```
 
-`launchers/default.sh` invokes `rosrun my_package vehicle_client.py` **inside the Duckiebot container**. The client subscribes to the compressed camera stream and publishes `Twist2DStamped` commands to the vehicle's command-switch topic.
+The Duckiebot launcher runs `vehicle_client.py` inside the ROS-enabled container. The vehicle streams JPEG frames to the server, which returns velocity (`v`) and angular velocity (`omega`) commands.
 
-### Communication protocol
+## Adversarial AI Experiments
 
-```text
-Duckiebot -> GPU server : img_size,vehicle,frame_id,t_gen\n + JPEG data
-GPU server -> Duckiebot : vehicle,frame_id,v,omega,t_server,aoi_server\n
-```
+White-box FGSM and PGD perturb the visual input before YOLOv8 inference. The paper evaluates increasing perturbation budgets of **ε = 0.01, 0.02, and 0.04**.
 
-The vehicle client also sends a timing-statistics line after receiving commands. That optional line is not fully integrated into the server's CSV telemetry handling.
+![Figure 3: Clean, FGSM, and PGD detections at increasing perturbation budgets.](figures/fig3_fgsm_pgd_detections.jpg)
 
-## Adversarial AI evaluation
+*Figure 3. Qualitative detection results. FGSM and PGD cause missed vehicle or traffic-light detections, reduced confidence, and false-positive detections; PGD produces more severe degradation.*
 
-### Online FGSM/PGD
-
-While the GPU server is active, use a second terminal **on the same workstation**:
-
-```bash
-# Projected Gradient Descent
-python3 configure_attacks.py --on --mode wb_pgd --eps 0.04 --alpha 0.01 --iters 10
-
-# Fast Gradient Sign Method
-python3 configure_attacks.py --on --mode wb_fgsm --eps 0.02
-
-# Return to clean perception
-python3 configure_attacks.py --off
-```
-
-The live attack code can construct pseudo-labels from clean detections; this is distinct from evaluation with labeled test images.
-
-### Offline FGSM/PGD
-
-Prepare YOLO-format image and label pairs under `dataset/images/` and `dataset/labels/`. Then run:
+To generate offline FGSM/PGD examples using a YOLO-format dataset, run:
 
 ```bash
 python3 evaluate_adversarial_detection.py \
-  --images dataset/images --labels dataset/labels \
-  --weights weight/yolo.pt --out offline_attacks \
-  --eps 0.01 0.02 0.04 --pgd-alpha 0.01 --pgd-iters 10 \
+  --images dataset/images \
+  --labels dataset/labels \
+  --weights weight/yolo.pt \
+  --out offline_attacks \
+  --eps 0.01 0.02 0.04 \
+  --pgd-alpha 0.01 \
+  --pgd-iters 10 \
   --loss-mode full
 
 python3 plot_adversarial_metrics.py --root . --bar-conf 0.25 --bar-iou 0.5
 ```
 
-The explicit epsilon values and PGD settings reflect those stated in the paper. The original script defaults differed; it is not established that every published plot was generated with this exact command.
+The image dataset must be placed in `dataset/` before running the evaluation. The command explicitly sets the attack parameters reported in the paper rather than relying on the scripts' default values.
 
-## Network-impairment experiments
+### Detection performance
 
-The network experiment script uses Linux `tc netem`, requires `sudo`, and changes network-interface queuing. Run only on an authorized isolated test network; check which interface carries Duckiebot traffic before executing it.
+![Figure 4: Precision and recall under clean, FGSM, and PGD conditions.](figures/fig4_precision_recall.png)
 
-```bash
-# On the GPU workstation; replace interface name with the correct one
-DEVICE=enp0s31f6 ./run_network_impairment.sh delay 150 90
-DEVICE=enp0s31f6 ./run_network_impairment.sh loss 2 90
-```
+*Figure 4. Object-detection precision and recall under clean and adversarial conditions.*
 
-This script launches `gpu_server.py` for each scenario; do **not** run a second `gpu_server.py` instance on the same port simultaneously.
-
-## Paper results
-
-| Condition | Detection precision | Detection recall |
+| Condition | Precision | Recall |
 | --- | ---: | ---: |
 | Clean | 0.73 | 0.68 |
-| FGSM (`ε=0.04`) | 0.38 | 0.46 |
-| PGD (`ε=0.04`) | 0.22 | 0.15 |
+| FGSM, ε = 0.01 | 0.67 | 0.54 |
+| PGD, ε = 0.01 | 0.68 | 0.56 |
+| FGSM, ε = 0.02 | 0.58 | 0.48 |
+| PGD, ε = 0.02 | 0.43 | 0.27 |
+| FGSM, ε = 0.04 | 0.38 | 0.46 |
+| PGD, ε = 0.04 | **0.22** | **0.15** |
 
-The paper also reports closed-loop degradation under network delay (100–250 ms) and packet loss (0.5–5%). `results/figure4_published_values.csv` contains **reported figure values**, not the original full prediction logs.
+At ε = 0.04, PGD reduces detection precision from **0.73 to 0.22** and recall from **0.68 to 0.15**, corresponding to approximately 70% and 78% decreases relative to the clean baseline. The paper also analyzes class-level errors through confusion matrices (Figure 5 of the paper).
 
-## Reproducibility and scope
+## Network Adversary Experiments
 
-The source code has been renamed and statically checked for import/launcher consistency, but the entire Duckietown-to-GPU closed loop has not been executed for this release. The original dataset split, complete experiment logs, and exact checkpoint provenance are not bundled. Researchers should confirm dependencies, thresholds, and calibration before operating robots. Start with the vehicle safely immobilized.
+The network adversary induces controlled communication delay and packet loss through **Linux `tc netem`** to examine the effect on closed-loop driving. The paper evaluates network delays of **100, 150, and 250 ms** and packet-loss rates of **0.5%, 2%, and 5%**.
+
+For example, on an authorized, isolated experiment network:
+
+```bash
+# Set DEVICE to the network interface used by the Duckiebot–cloud connection.
+DEVICE=<network-interface> ./run_network_impairment.sh delay 150 90
+DEVICE=<network-interface> ./run_network_impairment.sh loss 2 90
+```
+
+The script configures the selected interface and launches the cloud server for each test. It requires permission to use `tc`, and should not be run concurrently with another server instance on the same port.
+
+![Figure 6: Vehicle trajectories under different delay and packet-loss scenarios.](figures/fig6_network_trajectories.jpg)
+
+*Figure 6. Vehicle trajectories under network delay and packet-loss conditions. Increased impairment produces trajectory deviations and, at severe levels, incomplete laps or lane departures.*
+
+### Traffic-rule compliance
+
+The following table reproduces the paper's reported stop-sign compliance for the three intersections.
+
+| Network condition | Stop 1 | Stop 2 | Stop 3 |
+| --- | :---: | :---: | :---: |
+| Normal (no attack) | ✓ | ✓ | ✓ |
+| Delay 100 ms | ✓ | ✓ | ✓ |
+| Delay 150 ms | ✗ | ✗ | ✗ |
+| Delay 250 ms | ✗ | ✗ | ✗ |
+| Loss 0.5% | ✓ | ✓ | ✗ |
+| Loss 2% | ✓ | ✗ | ✗ |
+| Loss 5% | ✓ | ✗ | ✗ |
+
+The results show that network impairment can destabilize the perception–control loop and cause missed stopping events, even when the visual perception model is not directly attacked.
 
 ## Citation
+
+If you use this repository or refer to the reported results, please cite:
 
 ```bibtex
 @inproceedings{alislam2026adversarial,
@@ -213,11 +203,14 @@ The source code has been renamed and statically checked for import/launcher cons
 }
 ```
 
-Paper: https://doi.org/10.1109/SM69703.2026.11614113
+**Paper:** https://doi.org/10.1109/SM69703.2026.11614113
 
-## Authors and acknowledgment
+## Authors
 
 **Maher Al Islam** and **Amr S. El-Wakeel**  
-Lane Department of Computer Science and Electrical Engineering, West Virginia University, USA.
+Lane Department of Computer Science and Electrical Engineering  
+West Virginia University, WV, USA
 
-This research was partially supported by DARPA AI-CRAFT AWD16069.
+## Acknowledgment
+
+The authors acknowledge partial financial support from **DARPA AI-CRAFT, award AWD16069**.
